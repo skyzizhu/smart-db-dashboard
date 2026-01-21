@@ -129,47 +129,31 @@ class SmartDBConnector:
             return {}
     
     def _generate_table_keywords(self):
-        """为每个表生成关键词映射"""
-        # 中英文关键词映射
-        cn_en_mapping = {
-            'user': '用户',
-            'register': '注册',
-            'launch': '启动',
-            'funcuse': '使用',
-            'usage': '使用',
-            'source': '来源',
-            'channel': '渠道',
-            'burial': '埋点',
-            'info': '信息',
-            'time': '时间',
-            'date': '日期',
-        }
-
+        """为每个表生成关键词映射（完全基于表结构，不依赖硬编码）"""
         table_keyword_map = {}
 
         for table_name, info in self.table_cache.items():
             keywords = set()
 
-            # 表名本身
+            # 表名本身（各种形式）
             keywords.add(table_name.lower())
 
-            # 拆分表名中的关键词
+            # 拆分表名中的关键词（支持多种分隔符）
             parts = re.split(r'[_\s-]+', table_name.lower())
-            keywords.update([p for p in parts if len(p) > 2])
+            for part in parts:
+                if len(part) > 2:
+                    keywords.add(part)
+                    # 添加常见的缩写形式
+                    if len(part) > 4:
+                        # 添加前4个字符作为关键词
+                        keywords.add(part[:4])
 
             # 列名作为关键词
             for col in info['column_names']:
                 col_parts = re.split(r'[_\s-]+', col.lower())
-                keywords.update([p for p in col_parts if len(p) > 2])
-
-            # 添加中文对应词
-            for en_word, cn_word in cn_en_mapping.items():
-                if en_word in keywords:
-                    # 添加中文词和中文词的每个字符
-                    keywords.add(cn_word)
-                    for char in cn_word:
-                        if '\u4e00' <= char <= '\u9fff':
-                            keywords.add(char)
+                for part in col_parts:
+                    if len(part) > 2:
+                        keywords.add(part)
 
             table_keyword_map[table_name] = list(keywords)
 

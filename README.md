@@ -16,7 +16,8 @@
 - 📊 **自动可视化** - 根据数据类型自动生成图表（饼图、折线图等）
 - 📄 **HTML 看板导出** - 生成独立的 HTML 文件，支持分页浏览
 - ⚙️ **可配置化** - 支持自定义业务实体映射和查询模式
-- 🚀 **开箱即用** - 简单配置即可使用
+- 🚀 **通用适配** - 适配任何 MySQL 数据库结构
+- 🔧 **灵活扩展** - 通过配置文件轻松适配您的业务
 
 ---
 
@@ -111,13 +112,7 @@ Claude 会自动下载并配置好 skill，你只需要配置数据库连接即�
    cd smart-db-dashboard
    ```
 
-2. **创建 Skill 配置文件**
-   ```bash
-   # 将项目目录配置为 skill
-   # 在 Claude Code 的 skills 配置中添加此路径
-   ```
-
-3. **配置数据库连接**
+2. **配置数据库连接**
    ```bash
    # 复制配置模板
    cp db_config.json.template db_config.json
@@ -137,9 +132,38 @@ Claude 会自动下载并配置好 skill，你只需要配置数据库连接即�
    }
    ```
 
+3. **配置业务实体映射（重要！）**
+
+   **⚠️ 此 skill 是通用的，适配任何数据库结构。您需要配置业务实体映射，以便系统能理解您的中文查询。**
+
+   ```bash
+   # 复制配置模板
+   cp entity_config.json.template entity_config.json
+
+   # 根据您的数据库结构编辑配置
+   vim entity_config.json
+   ```
+
+   配置示例：
+   ```json
+   {
+     "entity_mappings": {
+       "用户表": "your_actual_user_table",
+       "订单表": "your_actual_order_table",
+       "产品表": "your_actual_product_table"
+     },
+     "time_field_mappings": {
+       "your_actual_user_table": "created_at",
+       "your_actual_order_table": "order_time"
+     }
+   }
+   ```
+
+   **详细配置说明请参考 [CONFIG_GUIDE.md](CONFIG_GUIDE.md)**
+
 4. **在 IDE 中使用**
 
-   安装完成后，直接在 Claude Code 中对话：
+   将项目目录配置为 skill，然后在 Claude Code 中对话：
 
    ```
    用户: 查询用户表的总数

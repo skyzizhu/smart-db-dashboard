@@ -1,0 +1,70 @@
+{
+  "_comment": "智能数据库看板 - 业务实体配置文件模板",
+  "_usage": "复制此文件为 entity_config.json 并根据您的数据库结构进行配置",
+  "_important": "此配置文件是可选的，但配置后可大幅提高中文查询的准确性",
+
+  "entity_mappings": {
+    "_comment": "将业务中文名称映射到您的实际表名",
+    "_description": "当用户用中文查询时，系统会自动映射到对应的表",
+    "_example": "用户说'查询用户表'，系统自动映射到'your_user_table'",
+
+    "_your_mappings": {
+      "用户表": "your_actual_user_table_name",
+      "订单表": "your_actual_order_table_name",
+      "产品表": "your_actual_product_table_name",
+      "日志表": "your_actual_log_table_name"
+    },
+
+    "_examples_from_real_project": {
+      "用户相关": {
+        "用户表": "tb_users",
+        "注册表": "tb_users",
+        "会员表": "tb_users"
+      },
+      "订单相关": {
+        "订单表": "tb_orders",
+        "销售表": "tb_orders"
+      }
+    }
+  },
+
+  "time_field_mappings": {
+    "_comment": "指定每个表应该使用的时间字段",
+    "_description": "用于时间范围查询和排序，如'最近7天的数据'",
+    "_important": "如果不配置，系统会自动尝试匹配包含time/date的字段",
+
+    "_example": {
+      "your_user_table": "created_at",
+      "your_order_table": "order_time"
+    }
+  },
+
+  "custom_query_patterns": {
+    "_comment": "自定义查询模式（可选）",
+    "_description": "添加您业务中特有的关键词，提高识别准确度",
+
+    "_example": {
+      "销售": "(销售|订单|购买|支付)",
+      "活跃": "(活跃|登录|在线|使用)",
+      "转化": "(转化|付费|购买)"
+    }
+  },
+
+  "table_aliases": {
+    "_comment": "为表设置简短别名（可选）",
+    "_description": "方便在查询中使用简短的名称",
+
+    "_example": {
+      "users": "your_long_user_table_name",
+      "orders": "your_long_order_table_name"
+    }
+  },
+
+  "_configuration_guide": {
+    "step1": "1. 复制此文件为 entity_config.json",
+    "step2": "2. 根据您的数据库表名修改 entity_mappings 部分",
+    "step3": "3. 配置 time_field_mappings 指定时间字段",
+    "step4": "4. 可选：添加 custom_query_patterns 和 table_aliases",
+    "note": "如果不配置此文件，系统会尝试通过表名和列名自动匹配，但准确度可能较低"
+  }
+}
