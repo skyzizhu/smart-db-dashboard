@@ -30,11 +30,13 @@
     "渠道来源相关": {
       "来源表": "yt_usersource_info_tb",
       "渠道表": "yt_usersource_info_tb",
-      "用户来源表": "yt_usersource_info_tb"
+      "用户来源表": "yt_usersource_info_tb",
+      "用户源信息表": "yt_usersource_info_tb"
     },
 
     "埋点相关": {
       "埋点表": "yt_burial_point_tb",
+      "埋点数据表": "yt_burial_point_tb",
       "行为追踪表": "yt_burial_point_tb",
       "事件表": "yt_burial_point_tb"
     }

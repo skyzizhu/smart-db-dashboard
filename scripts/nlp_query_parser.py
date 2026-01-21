@@ -70,6 +70,9 @@ class NLPQueryParser:
             'max': r'(最高|最大|最多)',
             'min': r'(最低|最小|最少)',
 
+            # 分组统计模式
+            'group_by': r'(各个|每个|按.*分组|分组.*统计|分别统计|.*的(使用|统计|情况))',
+
             # 灵活时间范围模式
             'last_days': r'(最近|过去|前)(\d+)(天|日)',
             'last_weeks': r'(最近|过去|前)(\d+)(周|星期)',
@@ -175,6 +178,9 @@ class NLPQueryParser:
         # 提取时间条件（传入表名以使用正确的时间字段）
         intent['time_conditions'] = self._extract_time_conditions(query_lower, table_name)
 
+        # 提取分组字段
+        intent['group_field'] = self._extract_group_field(query, table_name)
+
         return intent
     
     def _extract_fields(self, query: str) -> List[str]:
@@ -198,6 +204,34 @@ class NLPQueryParser:
                     break
         
         return found_fields
+
+    def _extract_group_field(self, query: str, table_name: str) -> Optional[str]:
+        """提取分组统计的字段名"""
+        if not table_name:
+            return None
+
+        table_info = self.db.get_table_structure(table_name)
+        if not table_info or not table_info.get('column_names'):
+            return None
+
+        query_lower = query.lower()
+        columns = table_info['column_names']
+
+        # 1. 尝试在查询中找到明确的字段名
+        for col in columns:
+            if col.lower() in query_lower:
+                return col
+
+        # 2. 尝试匹配常见的字段名模式
+        # module, type, category, status等常见的分组字段
+        group_keywords = ['module', 'type', 'category', 'status', 'level', 'group', 'class']
+        for col in columns:
+            col_lower = col.lower()
+            for keyword in group_keywords:
+                if keyword in col_lower:
+                    return col
+
+        return None
     
     def _extract_time_conditions(self, query: str, table_name: str = None) -> List[Dict[str, Any]]:
         """提取时间条件，返回条件列表（包含字段名和条件）"""
@@ -432,37 +466,54 @@ class NLPQueryParser:
                 # 默认最多查询10000条，前端JS进行客户端分页
                 page_size = 10000
             limit_clause = f"LIMIT {page_size}"
-        elif not intent.get('count'):  # 非统计查询默认限制
+        elif not intent.get('count') and not intent.get('group_field'):  # 非统计、非分组查询默认限制
             limit_clause = "LIMIT 100"
-        
+
+        # GROUP BY部分
+        group_clause = ""
+        group_field = intent.get('group_field')
+        if group_field and intent.get('group_by'):
+            # 修改SELECT子句以支持分组统计
+            select_clause = f"SELECT {group_field}, COUNT(*) as count_value"
+            group_clause = f"GROUP BY {group_field}"
+            # 分组统计默认按计数降序排列
+            if not order_clause:
+                order_clause = f"ORDER BY count_value DESC"
+
         # 组合SQL
         sql_parts = [select_clause, from_clause]
         if where_clause:
             sql_parts.append(where_clause)
+        if group_clause:
+            sql_parts.append(group_clause)
         if order_clause:
             sql_parts.append(order_clause)
         if limit_clause:
             sql_parts.append(limit_clause)
-        
+
         return " ".join(sql_parts)
     
     def _determine_chart_type(self, intent: Dict[str, Any], query: str) -> str:
         """确定图表类型"""
+        # 分组统计查询使用表格或柱状图
+        if intent.get('group_field') and intent.get('group_by'):
+            return "table"  # 分组统计结果用表格显示更清晰
+
         # 统计类查询使用单值显示
         if intent.get('count') or intent.get('sum') or intent.get('avg'):
             return "single_value"
-        
+
         # 时间趋势相关使用折线图
         if intent.get('time_conditions') and '趋势' in query:
             return "line_chart"
-        
+
         # 对比类查询使用柱状图
         if '对比' in query or '比较' in query:
             return "bar_chart"
-        
+
         # 分页查询使用表格
         if intent.get('pagination') or '列表' in query or '详情' in query:
             return "table"
-        
+
         # 默认使用表格
         return "table"
