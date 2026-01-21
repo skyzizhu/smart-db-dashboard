@@ -92,7 +92,17 @@ pip install mysql-connector-python
 
 ## 🚀 安装到本地 IDE
 
-### 方法一：下载 Skill 文件安装
+### 方法零：一键自动安装（推荐）
+
+最简单的安装方式，直接让 IDE 或 CLI 帮你下载：
+
+```
+帮我下载这个skill：https://github.com/skyzizhu/smart-db-dashboard
+```
+
+Claude 会自动下载并配置好 skill，你只需要配置数据库连接即可使用。
+
+### 方法一：手动下载安装
 
 1. **下载 Skill 文件**
    ```bash
@@ -136,7 +146,7 @@ pip install mysql-connector-python
    Claude: [自动调用 smart-db-dashboard skill 生成看板]
    ```
 
-### 方法二：直接使用 Python
+### 方法二：直接使用 Python 脚本
 
 如果不想安装到 IDE，也可以直接用 Python 运行：
 
