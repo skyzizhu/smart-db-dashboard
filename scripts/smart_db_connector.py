@@ -130,31 +130,62 @@ class SmartDBConnector:
     
     def _generate_table_keywords(self):
         """为每个表生成关键词映射"""
+        # 中英文关键词映射
+        cn_en_mapping = {
+            'user': '用户',
+            'register': '注册',
+            'launch': '启动',
+            'funcuse': '使用',
+            'usage': '使用',
+            'source': '来源',
+            'channel': '渠道',
+            'burial': '埋点',
+            'info': '信息',
+            'time': '时间',
+            'date': '日期',
+        }
+
         table_keyword_map = {}
-        
+
         for table_name, info in self.table_cache.items():
             keywords = set()
-            
+
             # 表名本身
             keywords.add(table_name.lower())
-            
+
             # 拆分表名中的关键词
             parts = re.split(r'[_\s-]+', table_name.lower())
             keywords.update([p for p in parts if len(p) > 2])
-            
+
             # 列名作为关键词
             for col in info['column_names']:
                 col_parts = re.split(r'[_\s-]+', col.lower())
                 keywords.update([p for p in col_parts if len(p) > 2])
-            
+
+            # 添加中文对应词
+            for en_word, cn_word in cn_en_mapping.items():
+                if en_word in keywords:
+                    # 添加中文词和中文词的每个字符
+                    keywords.add(cn_word)
+                    for char in cn_word:
+                        if '\u4e00' <= char <= '\u9fff':
+                            keywords.add(char)
+
             table_keyword_map[table_name] = list(keywords)
-        
+
         self.table_keywords = table_keyword_map
     
     def match_tables(self, user_query: str) -> List[Tuple[str, float]]:
         """根据用户查询匹配相关的表"""
         user_query_lower = user_query.lower()
-        user_words = set(re.findall(r'\b\w+\b', user_query_lower))
+        # 支持中文分词：每个中文字符单独分词，英文单词保持完整
+        user_words = set()
+        # 匹配连续的中文字符（每个单独作为一个词）
+        for char in user_query_lower:
+            if '\u4e00' <= char <= '\u9fff':
+                user_words.add(char)
+        # 匹配英文单词、数字、下划线
+        user_words.update(re.findall(r'[a-zA-Z0-9_]+', user_query_lower))
         
         table_scores = []
         

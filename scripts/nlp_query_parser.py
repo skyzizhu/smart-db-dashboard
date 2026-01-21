@@ -334,12 +334,13 @@ class NLPQueryParser:
             if table_info and table_info.get('column_names'):
                 # 列表/分页查询：选择所有字段，特别是时间字段
                 if intent.get('pagination') or '列表' in original_query or '详情' in original_query:
-                    # 优先选择包含时间的关键字段，最多选择10个避免列太多
+                    # 优先选择时间字段，排除timezone等非时间戳字段
                     cols = table_info['column_names']
-                    # 优先包含时间相关的字段
-                    time_cols = [c for c in cols if any(t in c.lower() for t in ['time', 'date', 'created', 'updated'])]
+                    # 优先包含时间相关的字段（排除timezone等）
+                    time_cols = [c for c in cols if any(t in c.lower() for t in ['time', 'date', 'created', 'updated'])
+                                and 'timezone' not in c.lower() and 'language' not in c.lower()]
                     other_cols = [c for c in cols if c not in time_cols]
-                    # 组合：时间字段优先，然后是其他字段
+                    # 组合：时间字段优先，然后是其他字段，最多选择10个
                     selected_cols = (time_cols + other_cols)[:10]
                     select_clause = f"SELECT {', '.join(selected_cols)}"
                 else:
@@ -397,11 +398,25 @@ class NLPQueryParser:
             # 列表/分页查询：默认按时间倒序（最新的在前）
             table_info = self.db.get_table_structure(primary_table)
             if table_info and table_info.get('column_names'):
-                # 优先查找包含time/date的字段
-                time_fields = [c for c in table_info['column_names']
-                              if any(t in c.lower() for t in ['time', 'date', 'created', 'updated'])]
-                if time_fields:
-                    order_clause = f"ORDER BY {time_fields[0]} DESC"
+                # 优先查找时间字段，排除timezone等非时间戳字段
+                # 优先级：created/updated时间 > xxx_time > xxx_date > 包含time的列名
+                time_priority_patterns = [
+                    'created_at', 'updated_at', 'create_time', 'update_time',  # 高优先级
+                    '_time', '_date', 'time_', 'date_',  # 中优先级（后缀/前缀）
+                    'timestamp',  # 时间戳
+                ]
+
+                time_field = None
+                for pattern in time_priority_patterns:
+                    for col in table_info['column_names']:
+                        if pattern in col.lower() and 'timezone' not in col.lower():
+                            time_field = col
+                            break
+                    if time_field:
+                        break
+
+                if time_field:
+                    order_clause = f"ORDER BY {time_field} DESC"
                 else:
                     order_clause = f"ORDER BY {table_info['column_names'][0]} DESC"
         
