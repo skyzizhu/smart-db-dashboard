@@ -332,9 +332,20 @@ class NLPQueryParser:
             # 默认选择主要字段
             table_info = self.db.get_table_structure(primary_table)
             if table_info and table_info.get('column_names'):
-                # 选择前5个字段，避免显示太多列
-                cols = table_info['column_names'][:5]
-                select_clause = f"SELECT {', '.join(cols)}"
+                # 列表/分页查询：选择所有字段，特别是时间字段
+                if intent.get('pagination') or '列表' in original_query or '详情' in original_query:
+                    # 优先选择包含时间的关键字段，最多选择10个避免列太多
+                    cols = table_info['column_names']
+                    # 优先包含时间相关的字段
+                    time_cols = [c for c in cols if any(t in c.lower() for t in ['time', 'date', 'created', 'updated'])]
+                    other_cols = [c for c in cols if c not in time_cols]
+                    # 组合：时间字段优先，然后是其他字段
+                    selected_cols = (time_cols + other_cols)[:10]
+                    select_clause = f"SELECT {', '.join(selected_cols)}"
+                else:
+                    # 普通查询：选择前5个字段
+                    cols = table_info['column_names'][:5]
+                    select_clause = f"SELECT {', '.join(cols)}"
             else:
                 select_clause = "SELECT *"
         
@@ -382,12 +393,30 @@ class NLPQueryParser:
             table_info = self.db.get_table_structure(primary_table)
             if table_info and table_info.get('column_names'):
                 order_clause = f"ORDER BY {table_info['column_names'][0]} ASC"
+        elif intent.get('pagination') or '列表' in original_query or '详情' in original_query:
+            # 列表/分页查询：默认按时间倒序（最新的在前）
+            table_info = self.db.get_table_structure(primary_table)
+            if table_info and table_info.get('column_names'):
+                # 优先查找包含time/date的字段
+                time_fields = [c for c in table_info['column_names']
+                              if any(t in c.lower() for t in ['time', 'date', 'created', 'updated'])]
+                if time_fields:
+                    order_clause = f"ORDER BY {time_fields[0]} DESC"
+                else:
+                    order_clause = f"ORDER BY {table_info['column_names'][0]} DESC"
         
         # LIMIT部分
         limit_clause = ""
         if intent.get('pagination'):
-            numbers = intent.get('numbers', [20])
-            limit_clause = f"LIMIT {numbers[0]}"
+            # 分页查询时设置合理的上限，避免查询过多数据
+            numbers = intent.get('numbers', [])
+            if numbers:
+                # 用户指定了每页数量
+                page_size = numbers[0]
+            else:
+                # 默认最多查询10000条，前端JS进行客户端分页
+                page_size = 10000
+            limit_clause = f"LIMIT {page_size}"
         elif not intent.get('count'):  # 非统计查询默认限制
             limit_clause = "LIMIT 100"
         

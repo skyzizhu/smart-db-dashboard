@@ -280,6 +280,20 @@ class SmartDashboardGenerator:
                 else:
                     formatted_data.append(row)
 
+            # 自定义JSON编码器处理特殊数据类型
+            class DateTimeEncoder(json.JSONEncoder):
+                def default(self, obj):
+                    # 处理datetime对象
+                    if hasattr(obj, 'strftime'):
+                        return obj.strftime('%Y-%m-%d %H:%M:%S')
+                    # 处理Decimal对象（MySQL数值类型）
+                    if hasattr(obj, 'float'):
+                        return float(obj)
+                    # 处理bytes对象
+                    if isinstance(obj, bytes):
+                        return obj.decode('utf-8', errors='ignore')
+                    return super().default(obj)
+
             # 替换模板占位符
             replacements = {
                 "{{TITLE}}": f"数据看板 - {query_result.get('original_query', '')}",
@@ -295,7 +309,7 @@ class SmartDashboardGenerator:
                     "row_count": query_result.get("row_count", 0),
                     "stats": query_result.get("stats", {"list": []}),
                     "charts": query_result.get("charts", [])
-                }, ensure_ascii=False, indent=2)
+                }, ensure_ascii=False, indent=2, cls=DateTimeEncoder)
             }
 
             html_content = html_template
