@@ -1,0 +1,40 @@
+# 数据库配置文件（包含敏感信息）
+db_config.json
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 虚拟环境
+venv/
+env/
+ENV/
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 日志文件
+*.log
+
+# 生成的看板文件
+dashboard_*.html
+
+# 临时文件
+*.tmp
+.DS_Store
+
+# 测试文件
+*.test
+.pytest_cache/
+
+# 配置文件备份
+*.bak
+*.backup
+entity_config.json.local

@@ -1,0 +1,75 @@
+{
+  "_comment": "智能数据库看板 - 业务实体配置文件",
+  "_usage": "用户可以根据自己的数据库表结构修改此配置文件",
+
+  "entity_mappings": {
+    "_comment": "业务实体名称到实际表名的映射",
+    "_description": "用户可以使用友好的业务名称来查询，系统会自动映射到实际表名",
+
+    "用户信息相关": {
+      "用户表": "yt_user_info_tb",
+      "注册表": "yt_user_info_tb",
+      "用户信息表": "yt_user_info_tb",
+      "会员表": "yt_user_info_tb"
+    },
+
+    "启动相关": {
+      "启动表": "yt_launchapp_info_tb",
+      "启动信息表": "yt_launchapp_info_tb",
+      "app启动表": "yt_launchapp_info_tb",
+      "应用启动表": "yt_launchapp_info_tb"
+    },
+
+    "功能使用相关": {
+      "使用表": "yt_funcuse_info_tb",
+      "功能使用表": "yt_funcuse_info_tb",
+      "功能表": "yt_funcuse_info_tb",
+      "操作记录表": "yt_funcuse_info_tb"
+    },
+
+    "渠道来源相关": {
+      "来源表": "yt_usersource_info_tb",
+      "渠道表": "yt_usersource_info_tb",
+      "用户来源表": "yt_usersource_info_tb"
+    },
+
+    "埋点相关": {
+      "埋点表": "yt_burial_point_tb",
+      "行为追踪表": "yt_burial_point_tb",
+      "事件表": "yt_burial_point_tb"
+    }
+  },
+
+  "time_field_mappings": {
+    "_comment": "不同表对应的时间字段",
+    "_description": "系统会根据查询的表自动使用对应的时间字段",
+
+    "yt_user_info_tb": "register_time",
+    "yt_launchapp_info_tb": "viewing_time",
+    "yt_funcuse_info_tb": "usage_time",
+    "yt_usersource_info_tb": "created_at",
+    "yt_burial_point_tb": "created_at"
+  },
+
+  "custom_query_patterns": {
+    "_comment": "自定义查询模式（可选）",
+    "_description": "添加您自己的业务关键词，提高识别准确度",
+
+    "examples": {
+      "销售": "(销售|订单|购买|支付)",
+      "活跃": "(活跃|登录|在线|使用)",
+      "转化": "(转化|付费|购买)"
+    }
+  },
+
+  "table_aliases": {
+    "_comment": "表别名（可选）",
+    "_description": "为表设置简短别名，方便在查询中使用",
+
+    "users": "yt_user_info_tb",
+    "launch": "yt_launchapp_info_tb",
+    "usage": "yt_funcuse_info_tb",
+    "source": "yt_usersource_info_tb",
+    "events": "yt_burial_point_tb"
+  }
+}

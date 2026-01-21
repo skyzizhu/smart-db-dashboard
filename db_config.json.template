@@ -1,0 +1,11 @@
+{
+  "_comment": "数据库连接配置模板",
+  "_usage": "复制此文件为 db_config.json 并填入您的实际配置",
+
+  "host": "your_database_host",
+  "port": 3306,
+  "user": "your_username",
+  "password": "your_password",
+  "database": "your_database_name",
+  "charset": "utf8mb4"
+}
