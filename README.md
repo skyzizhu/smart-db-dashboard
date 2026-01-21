@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.7+-green.svg)](https://www.python.org/)
 [![MySQL](https://img.shields.io/badge/mysql-5.7+-orange.svg)](https://www.mysql.com/)
-[![Version](https://img.shields.io/badge/version-3.0-brightgreen.svg)](https://github.com/yourusername/smart-db-dashboard/releases)
+[![Version](https://img.shields.io/badge/version-3.0-brightgreen.svg)](https://github.com/skyzizhu/smart-db-dashboard/releases)
 
 ---
 
@@ -31,72 +31,80 @@
 
 ---
 
-## 🚀 快速开始
+## 🔧 环境要求
 
-### 1. 安装依赖
+### 必需软件
+
+| 软件 | 版本要求 | 说明 |
+|------|----------|------|
+| **Python** | 3.7 或更高版本 | 核心运行环境 |
+| **MySQL** | 5.7 或更高版本 | 数据库服务器 |
+| **Claude Code** | 最新版本 | IDE集成支持（可选） |
+
+### Python 依赖包
 
 ```bash
 pip install mysql-connector-python
 ```
 
-### 2. 配置数据库
+---
+
+## 🚀 安装到本地 IDE
+
+### 方法一：下载 Skill 文件安装
+
+1. **下载 Skill 文件**
+   ```bash
+   # 克隆仓库
+   git clone https://github.com/skyzizhu/smart-db-dashboard.git
+   cd smart-db-dashboard
+   ```
+
+2. **创建 Skill 配置文件**
+   ```bash
+   # 将项目目录配置为 skill
+   # 在 Claude Code 的 skills 配置中添加此路径
+   ```
+
+3. **配置数据库连接**
+   ```bash
+   # 复制配置模板
+   cp db_config.json.template db_config.json
+
+   # 编辑配置文件，填入你的数据库信息
+   vim db_config.json
+   ```
+
+   ```json
+   {
+     "host": "your_database_host",
+     "port": 3306,
+     "user": "your_username",
+     "password": "your_password",
+     "database": "your_database",
+     "charset": "utf8mb4"
+   }
+   ```
+
+4. **在 IDE 中使用**
+
+   安装完成后，直接在 Claude Code 中对话：
+
+   ```
+   用户: 查询用户表的总数
+   Claude: [自动调用 smart-db-dashboard skill 生成看板]
+   ```
+
+### 方法二：直接使用 Python
+
+如果不想安装到 IDE，也可以直接用 Python 运行：
 
 ```bash
-# 复制配置模板
-cp db_config.json.template db_config.json
+# 安装依赖
+pip install mysql-connector-python
 
-# 编辑配置文件
-vim db_config.json
-```
-
-```json
-{
-  "host": "your_database_host",
-  "port": 3306,
-  "user": "your_username",
-  "password": "your_password",
-  "database": "your_database",
-  "charset": "utf8mb4"
-}
-```
-
-### 3. 配置业务实体（可选）
-
-编辑 `entity_config.json`，将您的业务名称映射到实际表名：
-
-```json
-{
-  "entity_mappings": {
-    "用户相关": {
-      "用户表": "tb_users",
-      "注册表": "tb_users"
-    },
-    "订单相关": {
-      "订单表": "tb_orders",
-      "销售表": "tb_orders"
-    }
-  },
-  "time_field_mappings": {
-    "tb_users": "created_at",
-    "tb_orders": "order_time"
-  }
-}
-```
-
-### 4. 开始使用
-
-```python
-from scripts.smart_dashboard_generator import SmartDashboardGenerator
-
-generator = SmartDashboardGenerator()
-
-# 查询并自动生成 HTML 看板
-generator.create_dashboard("查询用户表的总数")
-```
-
-**生成的 HTML 文件示例：**
-```
-dashboard_查询用户表的总数_20260121_153045_123456.html
+# 运行查询
+python scripts/smart_dashboard_generator.py "查询用户表的总数"
 ```
 
 ---
@@ -105,38 +113,25 @@ dashboard_查询用户表的总数_20260121_153045_123456.html
 
 ### 统计查询
 
-```bash
-# 查询用户总数
-python scripts/smart_dashboard_generator.py "用户表有多少人"
-
-# 查询今天的注册量
-python scripts/smart_dashboard_generator.py "今天的注册量"
-
-# 查询平均销售额
-python scripts/smart_dashboard_generator.py "订单表的平均销售额"
+```
+用户: 查询用户表有多少人
+用户: 今天的注册量是多少
+用户: 订单表的平均销售额
 ```
 
 ### 时间范围查询
 
-```bash
-# 最近7天的数据
-python scripts/smart_dashboard_generator.py "最近7天的用户注册量"
-
-# 最近3天的使用情况
-python scripts/smart_dashboard_generator.py "使用表最近3天的数据"
-
-# 本月的数据统计
-python scripts/smart_dashboard_generator.py "订单表本月的销售总额"
+```
+用户: 最近7天的用户注册量
+用户: 使用表最近3天的数据
+用户: 订单表本月的销售总额
 ```
 
 ### 列表查询
 
-```bash
-# 查看用户列表
-python scripts/smart_dashboard_generator.py "显示用户表最新的100条记录"
-
-# 查看订单详情
-python scripts/smart_dashboard_generator.py "订单表的销售详情"
+```
+用户: 显示用户表最新的100条记录
+用户: 查看订单表的销售详情
 ```
 
 ---
@@ -269,8 +264,8 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 ## 📞 联系方式
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/smart-db-dashboard/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/smart-db-dashboard/discussions)
+- **Issues**: [GitHub Issues](https://github.com/skyzizhu/smart-db-dashboard/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/skyzizhu/smart-db-dashboard/discussions)
 
 ---
 
