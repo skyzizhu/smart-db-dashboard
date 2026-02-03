@@ -124,6 +124,27 @@
         .badge-info { background: #dbeafe; color: #1e40af; }
         .badge-warning { background: #fef3c7; color: #92400e; }
 
+        .meta-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px; padding: 18px 22px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+            margin-bottom: 18px;
+            font-size: 13px; color: #444;
+        }
+        .meta-row { margin-bottom: 6px; }
+        .meta-label { color: #666; margin-right: 4px; }
+        .sql-block {
+            margin-top: 8px;
+            background: #0f172a;
+            color: #e5e7eb;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
         /* 响应式 */
         @media (max-width: 768px) {
             .stats-grid { grid-template-columns: 1fr; }
@@ -158,6 +179,22 @@
                 <div>⏱️ 查询耗时: {{QUERY_TIME}}</div>
                 <div>📊 数据量: {{ROW_COUNT}} 条</div>
             </div>
+        </div>
+
+        <!-- 查询信息 -->
+        <div class="meta-card" id="metaCard" style="display: none;">
+            <div class="meta-row">
+                <span class="meta-label">目标表:</span>
+                <span id="metaTable"></span>
+            </div>
+            <div class="meta-row">
+                <span class="meta-label">时间范围:</span>
+                <span id="metaTime"></span>
+            </div>
+            <div class="meta-row">
+                <span class="meta-label">SQL:</span>
+            </div>
+            <div class="sql-block" id="metaSql"></div>
         </div>
 
         <!-- 统计卡片 -->
@@ -212,6 +249,8 @@
             totalRecords = data.row_count || 0;
             filteredData = data.data || [];
 
+            renderMeta(data.meta || {});
+
             // 渲染各个部分
             renderStats(data.stats || {});
             renderCharts(data.charts || []);
@@ -236,6 +275,25 @@
                 `;
                 container.appendChild(card);
             });
+        }
+
+        function renderMeta(meta) {
+            const card = document.getElementById('metaCard');
+            if (!meta) {
+                card.style.display = 'none';
+                return;
+            }
+
+            const table = meta.primary_table || '-';
+            const timeConds = Array.isArray(meta.time_conditions) ? meta.time_conditions : [];
+            const timeDesc = timeConds.length > 0 ? (timeConds[0].description || '') : '';
+            const sql = (meta.sql || '').trim();
+
+            document.getElementById('metaTable').textContent = table || '-';
+            document.getElementById('metaTime').textContent = timeDesc || '未限定（可能为全量数据，已自动限制行数）';
+            document.getElementById('metaSql').textContent = sql || '未生成SQL';
+
+            card.style.display = 'block';
         }
 
         function renderCharts(charts) {

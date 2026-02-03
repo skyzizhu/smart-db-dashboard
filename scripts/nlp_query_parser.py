@@ -21,6 +21,7 @@ class NLPQueryParser:
         # 从配置文件获取映射表
         self.entity_mappings = self._flatten_entity_mappings(self.config.get('entity_mappings', {}))
         self.time_field_mappings = self._filter_comment_fields(self.config.get('time_field_mappings', {}))
+        self.table_aliases = self._filter_comment_fields(self.config.get('table_aliases', {}))
 
         # 合并自定义查询模式
         custom_patterns = self.config.get('custom_query_patterns', {}).get('examples', {})
@@ -64,7 +65,7 @@ class NLPQueryParser:
         """获取默认的查询模式"""
         return {
             # 统计查询模式
-            'count': r'(多少|几个|数量|总数|统计)',
+            'count': r'(多少|几个|数量|总数|统计|次数)',
             'sum': r'(总和|总量|总计|累计)',
             'avg': r'(平均|均值)',
             'max': r'(最高|最大|最多)',
@@ -105,11 +106,23 @@ class NLPQueryParser:
         }
     
     def _map_entity_to_table(self, query: str) -> Optional[str]:
-        """将业务实体名称映射到实际表名"""
+        """将业务实体名称或别名映射到实际表名"""
+        query_lower = query.lower()
+        candidates: List[Tuple[str, int]] = []
+
         for entity_name, table_name in self.entity_mappings.items():
             if entity_name in query:
-                return table_name
-        return None
+                candidates.append((table_name, len(entity_name)))
+
+        for alias, table_name in self.table_aliases.items():
+            if alias.lower() in query_lower:
+                candidates.append((table_name, len(alias)))
+
+        if not candidates:
+            return None
+
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        return candidates[0][0]
 
     def parse_query(self, user_query: str) -> Dict[str, Any]:
         """解析用户查询并生成执行计划"""
@@ -334,13 +347,14 @@ class NLPQueryParser:
         return conditions
     
     def _plan_joins(self, table_matches: List[Tuple[str, float]], query: str) -> List[str]:
-        """规划表连接"""
+        """规划表连接（目前采用简单的“相关表列表”，具体JOIN在后续扩展）"""
         join_tables = []
-        
+
         for table_name, score in table_matches:
-            if score > 0.3:  # 只考虑有一定相关性的表
+            # 只考虑有一定相关性的表，后续可以在这里引入外键/字段交集分析
+            if score > 0.3:
                 join_tables.append(table_name)
-        
+
         return join_tables
     
     def _generate_sql(self, primary_table: str, related_tables: List[str], 

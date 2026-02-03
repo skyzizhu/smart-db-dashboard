@@ -7,7 +7,7 @@
 import json
 import os
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from collections import Counter
 from smart_db_connector import SmartDBConnector
 from nlp_query_parser import NLPQueryParser
@@ -23,24 +23,15 @@ class SmartDashboardGenerator:
         """处理用户查询的完整流程"""
         print(f"🔍 处理查询: {user_query}")
         
-        # 1. 连接数据库并发现表
+        # 1. 尝试建立数据库连接（不主动发现表，表匹配时按需调用 SHOW TABLES）
         if not self.db.connect():
             return {
                 "success": False,
                 "error": "数据库连接失败，请检查配置",
                 "type": "connection_error"
             }
-        
-        # 2. 发现所有表
-        tables = self.db.discover_tables()
-        if not tables:
-            return {
-                "success": False,
-                "error": "无法获取数据库表信息",
-                "type": "table_error"
-            }
-        
-        # 3. 解析查询并生成执行计划
+
+        # 2. 解析查询并生成执行计划（优先使用 entity_config 映射，失败时再通过 SHOW TABLES 匹配）
         query_plan = self.parser.parse_query(user_query)
         
         if not query_plan["success"]:
@@ -93,19 +84,26 @@ class SmartDashboardGenerator:
         """生成查询结果描述"""
         intent = plan.get("query_intent", {})
         table_name = plan["primary_table"]
+        time_conditions = intent.get("time_conditions") or []
+        time_desc = time_conditions[0]["description"] if time_conditions else ""
+
+        def _with_time_suffix(text: str) -> str:
+            if time_desc:
+                return f"{text}（时间范围：{time_desc}）"
+            return text
         
         # 根据查询类型生成描述
         if intent.get("count"):
             count_value = sql_result["data"][0].get("count_value", 0) if sql_result["data"] else 0
-            return f"{table_name}表中的记录数量: {count_value}"
+            return _with_time_suffix(f"{table_name}表中的记录数量: {count_value}")
         elif intent.get("sum"):
             sum_value = sql_result["data"][0].get("sum_value", 0) if sql_result["data"] else 0
-            return f"{table_name}表中指定字段的总和: {sum_value}"
+            return _with_time_suffix(f"{table_name}表中指定字段的总和: {sum_value}")
         elif intent.get("avg"):
             avg_value = sql_result["data"][0].get("avg_value", 0) if sql_result["data"] else 0
-            return f"{table_name}表中指定字段的平均值: {avg_value}"
+            return _with_time_suffix(f"{table_name}表中指定字段的平均值: {avg_value}")
         else:
-            return f"查询结果: {sql_result['row_count']} 条记录"
+            return _with_time_suffix(f"查询结果: {sql_result['row_count']} 条记录")
 
     def _generate_stats(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """生成统计数据"""
@@ -308,7 +306,13 @@ class SmartDashboardGenerator:
                     "columns": columns,
                     "row_count": query_result.get("row_count", 0),
                     "stats": query_result.get("stats", {"list": []}),
-                    "charts": query_result.get("charts", [])
+                    "charts": query_result.get("charts", []),
+                    "meta": {
+                        "original_query": query_result.get("original_query", ""),
+                        "sql": query_result.get("sql_query", ""),
+                        "primary_table": query_result.get("query_plan", {}).get("primary_table"),
+                        "time_conditions": query_result.get("query_plan", {}).get("query_intent", {}).get("time_conditions", []),
+                    },
                 }, ensure_ascii=False, indent=2, cls=DateTimeEncoder)
             }
 
@@ -436,12 +440,13 @@ class SmartDashboardGenerator:
         </html>
         """
     
-    def create_dashboard(self, user_query: str, output_file: str = None) -> str:
+    def create_dashboard(self, user_query: str, output_file: str = None, query_result: Dict[str, Any] = None) -> str:
         """创建完整的看板并保存到文件"""
         print(f"🚀 开始创建看板: {user_query}")
 
-        # 处理查询
-        query_result = self.process_query(user_query)
+        # 处理查询（如未提供现成结果，则内部执行一次查询）
+        if query_result is None:
+            query_result = self.process_query(user_query)
 
         if not query_result["success"]:
             # 即使出错也要生成页面
@@ -478,18 +483,152 @@ class SmartDashboardGenerator:
             print(f"❌ 保存文件失败: {e}")
             return None
 
+def _check_entity_config(entity_config_path: str) -> Tuple[bool, List[str], List[str]]:
+    errors: List[str] = []
+    warnings: List[str] = []
+
+    if not os.path.exists(entity_config_path):
+        warnings.append(f"找不到实体配置文件: {entity_config_path}")
+        return False, errors, warnings
+
+    try:
+        with open(entity_config_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+    except Exception as e:
+        errors.append(f"实体配置文件解析失败: {e}")
+        return False, errors, warnings
+
+    if not isinstance(cfg, dict):
+        errors.append("实体配置文件不是有效的JSON对象")
+        return False, errors, warnings
+
+    entity_mappings = cfg.get("entity_mappings", {})
+    time_field_mappings = cfg.get("time_field_mappings", {})
+
+    if not isinstance(entity_mappings, dict):
+        errors.append("entity_mappings 必须是对象")
+    if not isinstance(time_field_mappings, dict):
+        errors.append("time_field_mappings 必须是对象")
+
+    flat_count = 0
+    for category, entities in entity_mappings.items():
+        if isinstance(category, str) and category.startswith("_"):
+            continue
+        if isinstance(entities, dict):
+            flat_count += len(
+                [k for k in entities.keys() if not (isinstance(k, str) and k.startswith("_"))]
+            )
+
+    if flat_count == 0:
+        warnings.append("entity_mappings 中没有可用的实体映射，无法通过业务名称匹配表")
+
+    return (not errors), errors, warnings
+
+
 def main():
     """主函数 - 命令行使用"""
+    import argparse
     import sys
-    
-    if len(sys.argv) < 2:
-        print("使用方法: python smart_dashboard_generator.py \"查询描述\"")
-        print("示例: python smart_dashboard_generator.py \"今天的用户注册量\"")
+
+    parser = argparse.ArgumentParser(description="智能数据看板生成器")
+    parser.add_argument("query", nargs="*", help="自然语言查询，例如: 今天的用户注册量")
+    parser.add_argument("--check-config", action="store_true", help="检查 db_config.json 和 entity_config.json 配置并测试数据库连接")
+    parser.add_argument("--db-config", default="db_config.json", help="数据库配置文件路径")
+    parser.add_argument("--entity-config", default="entity_config.json", help="实体配置文件路径")
+    parser.add_argument("--mode", choices=["dashboard", "sql", "json"], default="dashboard", help="输出模式: 仪表盘HTML / 仅SQL / 原始JSON结果")
+    parser.add_argument("--output", help="输出HTML文件路径(仅 dashboard 模式有效)")
+
+    args = parser.parse_args()
+
+    if args.check_config:
+        print("🧪 开始检查数据库配置与实体配置")
+        db = SmartDBConnector(args.db_config)
+        db_result = db.validate_config()
+
+        if db_result["ok"]:
+            print("✅ db_config.json 字段检查通过")
+        else:
+            print("❌ db_config.json 存在问题:")
+            for e in db_result["errors"]:
+                print(f"  - {e}")
+        for w in db_result.get("warnings", []):
+            print(f"⚠️ {w}")
+
+        print("\n🧪 测试数据库连接...")
+        if db.test_connection():
+            print("✅ 数据库连接成功")
+        else:
+            print("❌ 数据库连接失败，请检查网络、防火墙以及账号密码")
+
+        print("\n🧪 检查实体配置文件 entity_config.json")
+        ok_entity, entity_errors, entity_warnings = _check_entity_config(args.entity_config)
+        if ok_entity:
+            print("✅ entity_config.json 基本结构检查通过")
+        else:
+            print("❌ entity_config.json 存在问题:")
+            for e in entity_errors:
+                print(f"  - {e}")
+        for w in entity_warnings:
+            print(f"⚠️ {w}")
+
         return
-    
-    user_query = " ".join(sys.argv[1:])
-    generator = SmartDashboardGenerator()
-    generator.create_dashboard(user_query)
+
+    if not args.query:
+        parser.print_help()
+        return
+
+    user_query = " ".join(args.query)
+    generator = SmartDashboardGenerator(args.db_config)
+
+    if args.mode == "sql":
+        plan = generator.parser.parse_query(user_query)
+        if not plan.get("success"):
+            print(f"❌ 解析失败: {plan.get('error', '未知错误')}")
+            return
+        print("📋 匹配到表:", plan.get("primary_table"))
+        print("📌 生成的SQL:")
+        print(plan.get("sql_query"))
+        return
+
+    if args.mode == "json":
+        result = generator.process_query(user_query)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
+
+    # dashboard 模式：先查询出结果，再询问是否生成 HTML 看板
+    result = generator.process_query(user_query)
+    if not result.get("success"):
+        print(f"❌ 查询失败: {result.get('error', '未知错误')}")
+
+        def _ask_yes_no(prompt: str) -> bool:
+            try:
+                answer = input(prompt).strip().lower()
+            except EOFError:
+                return False
+            return answer in ("y", "yes", "是", "好", "ok")
+
+        if _ask_yes_no("是否生成错误HTML看板用于排查？(y/n): "):
+            generator.create_dashboard(user_query, output_file=args.output, query_result=result)
+        return
+
+    # 查询成功时，先给出简要信息和SQL，再征询是否导出HTML
+    plan = result.get("query_plan") or {}
+    print("📋 匹配到表:", plan.get("primary_table"))
+    print("📌 生成的SQL:")
+    print(result.get("sql_query", ""))
+    print("📊 结果行数:", result.get("row_count", 0))
+
+    def _ask_yes_no(prompt: str) -> bool:
+        try:
+            answer = input(prompt).strip().lower()
+        except EOFError:
+            return False
+        return answer in ("y", "yes", "是", "好", "ok")
+
+    if _ask_yes_no("是否生成 HTML 数据看板？(y/n): "):
+        generator.create_dashboard(user_query, output_file=args.output, query_result=result)
+    else:
+        print("已跳过 HTML 看板生成。")
 
 if __name__ == "__main__":
     main()

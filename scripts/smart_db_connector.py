@@ -25,6 +25,42 @@ class SmartDBConnector:
         self.config = self._load_config()
         self.table_cache = {}
         self.table_keywords = {}
+
+    def validate_config(self) -> Dict[str, Any]:
+        required_fields = {
+            "host": str,
+            "port": int,
+            "user": str,
+            "password": str,
+            "database": str,
+            "charset": str,
+        }
+        errors: List[str] = []
+        warnings: List[str] = []
+
+        if not isinstance(self.config, dict):
+            errors.append("配置文件不是有效的JSON对象")
+            return {"ok": False, "errors": errors, "warnings": warnings}
+
+        for field, field_type in required_fields.items():
+            if field not in self.config:
+                errors.append(f"缺少必填字段: {field}")
+            else:
+                value = self.config[field]
+                if field == "port":
+                    if not isinstance(value, int):
+                        try:
+                            self.config[field] = int(value)
+                        except Exception:
+                            errors.append(f"字段类型错误: {field} 需要整数")
+                else:
+                    if not isinstance(value, field_type):
+                        errors.append(f"字段类型错误: {field} 需要 {field_type.__name__}")
+
+        if "charset" in self.config and self.config["charset"].lower() not in {"utf8", "utf8mb4"}:
+            warnings.append(f"字符集为 {self.config['charset']}, 建议使用 utf8mb4")
+
+        return {"ok": not errors, "errors": errors, "warnings": warnings, "config": self.config}
     
     def _load_config(self) -> Dict[str, Any]:
         """加载数据库配置"""
@@ -161,6 +197,13 @@ class SmartDBConnector:
     
     def match_tables(self, user_query: str) -> List[Tuple[str, float]]:
         """根据用户查询匹配相关的表"""
+        # 懒加载：只有在需要匹配时才去发现所有表并构建关键词
+        if not self.table_cache:
+            self.discover_tables()
+
+        if not self.table_keywords:
+            return []
+
         user_query_lower = user_query.lower()
         # 支持中文分词：每个中文字符单独分词，英文单词保持完整
         user_words = set()

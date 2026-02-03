@@ -91,100 +91,185 @@ pip install mysql-connector-python
 
 ---
 
-## 🚀 安装到本地 IDE
+## 🚀 安装与配置（重点）
 
-### 方法零：一键自动安装（推荐）
+### 0. 在 Codex / 本地安装 skill
 
-最简单的安装方式，直接让 IDE 或 CLI 帮你下载：
+**方式 A：在 Codex 中一键安装（推荐）**
 
-```
+在 Codex 里直接说：
+
+```text
 帮我下载这个skill：https://github.com/skyzizhu/smart-db-dashboard
 ```
 
-Claude 会自动下载并配置好 skill，你只需要配置数据库连接即可使用。
+Codex 会自动克隆本仓库，你只需要在本地配置数据库和实体映射即可。
 
-### 方法一：手动下载安装
-
-1. **下载 Skill 文件**
-   ```bash
-   # 克隆仓库
-   git clone https://github.com/skyzizhu/smart-db-dashboard.git
-   cd smart-db-dashboard
-   ```
-
-2. **配置数据库连接**
-   ```bash
-   # 复制配置模板
-   cp db_config.json.template db_config.json
-
-   # 编辑配置文件，填入你的数据库信息
-   vim db_config.json
-   ```
-
-   ```json
-   {
-     "host": "your_database_host",
-     "port": 3306,
-     "user": "your_username",
-     "password": "your_password",
-     "database": "your_database",
-     "charset": "utf8mb4"
-   }
-   ```
-
-3. **配置业务实体映射（重要！）**
-
-   **⚠️ 此 skill 是通用的，适配任何数据库结构。您需要配置业务实体映射，以便系统能理解您的中文查询。**
-
-   ```bash
-   # 复制配置模板
-   cp entity_config.json.template entity_config.json
-
-   # 根据您的数据库结构编辑配置
-   vim entity_config.json
-   ```
-
-   配置示例：
-   ```json
-   {
-     "entity_mappings": {
-       "用户表": "your_actual_user_table",
-       "订单表": "your_actual_order_table",
-       "产品表": "your_actual_product_table"
-     },
-     "time_field_mappings": {
-       "your_actual_user_table": "created_at",
-       "your_actual_order_table": "order_time"
-     }
-   }
-   ```
-
-   **详细配置说明请参考 [CONFIG_GUIDE.md](CONFIG_GUIDE.md)**
-
-4. **在 IDE 中使用**
-
-   将项目目录配置为 skill，然后在 Claude Code 中对话：
-
-   ```
-   用户: 查询用户表的总数
-   Claude: [自动调用 smart-db-dashboard skill 生成看板]
-   ```
-
-### 方法二：直接使用 Python 脚本
-
-如果不想安装到 IDE，也可以直接用 Python 运行：
+**方式 B：手动克隆仓库**
 
 ```bash
-# 安装依赖
-pip install mysql-connector-python
+git clone https://github.com/skyzizhu/smart-db-dashboard.git
+cd smart-db-dashboard
+```
 
-# 运行查询
-python scripts/smart_dashboard_generator.py "查询用户表的总数"
+> 后面的所有命令默认都在 `smart-db-dashboard` 目录下执行。
+
+---
+
+### 1. 配置数据库连接（必配，最重要）
+
+Skill 本身不带你的数据库信息，每个使用者必须按自己的环境配置 `db_config.json`：
+
+1）复制模板：
+
+```bash
+cp db_config.json.template db_config.json
+```
+
+2）编辑 `db_config.json`，填上自己的 MySQL 连接信息：
+
+```json
+{
+  "host": "your_database_host",
+  "port": 3306,
+  "user": "your_username",
+  "password": "your_password",
+  "database": "your_database_name",
+  "charset": "utf8mb4"
+}
+```
+
+- `host`：数据库地址（IP 或域名），例如 `127.0.0.1` / 内网 IP / 云数据库地址  
+- `port`：MySQL 端口，默认 3306  
+- `user` / `password`：有查询权限的账号和密码  
+- `database`：要查询的数据库名  
+- `charset`：建议固定使用 `utf8mb4`
+
+3）完成后，可以用内置自检命令验证配置是否正确：
+
+```bash
+python scripts/smart_dashboard_generator.py --check-config
+```
+
+它会：
+- 检查 `db_config.json` 字段是否完整、类型是否正确  
+- 尝试连接你的数据库，并提示“连接成功 / 失败以及原因”
+
+---
+
+### 2. 配置业务实体映射（推荐，但不是强制）
+
+`entity_config.json` 决定“你说的中文表述”如何映射到实际表名、时间字段等。  
+不配置也能用（会自动通过 `SHOW TABLES` + 表名匹配），但配置后体验会好很多。
+
+1）复制模板：
+
+```bash
+cp entity_config.json.template entity_config.json
+```
+
+2）编辑 `entity_config.json` 的三个核心部分：  
+
+#### 2.1 `entity_mappings`：中文业务名 → 实际表名
+
+示例：
+
+```json
+{
+  "entity_mappings": {
+    "用户相关": {
+      "用户表": "your_user_table",
+      "注册表": "your_user_table",
+      "会员表": "your_user_table"
+    },
+    "订单相关": {
+      "订单表": "your_order_table",
+      "销售表": "your_order_table"
+    },
+    "启动相关": {
+      "启动表": "your_launch_table",
+      "启动信息表": "your_launch_table"
+    },
+    "使用相关": {
+      "使用表": "your_usage_table",
+      "功能使用表": "your_usage_table"
+    }
+  }
+}
+```
+
+配置好以后：
+- 你说“查询注册表最近7天的数据”，会自动映射到 `your_user_table`；  
+- 你说“最近7天使用表的数据”，会映射到 `your_usage_table`。
+
+#### 2.2 `time_field_mappings`：表名 → 时间字段
+
+告诉系统每个表用哪个时间字段做“最近X天、本周、本月”等过滤：
+
+```json
+{
+  "time_field_mappings": {
+    "your_user_table": "created_at",
+    "your_order_table": "order_time",
+    "your_launch_table": "launch_time",
+    "your_usage_table": "usage_time"
+  }
+}
+```
+
+这样：
+- “最近7天注册表的数据” → 使用 `your_user_table.created_at` 做时间条件  
+- “本周启动次数有多少” → 使用 `your_launch_table.launch_time` 做时间条件。
+
+#### 2.3 `table_aliases`（可选）：英文别名 → 实际表名
+
+如果你习惯在查询里用简写，比如 `users / orders / launch`，可以配置：
+
+```json
+{
+  "table_aliases": {
+    "users": "your_user_table",
+    "orders": "your_order_table",
+    "launch": "your_launch_table",
+    "usage": "your_usage_table"
+  }
+}
+```
+
+> 完整字段说明和高级配置请参考 [CONFIG_GUIDE.md](CONFIG_GUIDE.md)。
+
+---
+
+### 3. 在 Codex / 命令行中使用 skill
+
+**在 Codex 对话里：**
+
+- 先确保当前工作区指向这个仓库；
+- 然后直接用自然语言提问，例如：
+
+```text
+用 smart-db-dashboard 查询最近7天使用表的数据，并生成 HTML 看板
+用 smart-db-dashboard 帮我生成“本周注册表的用户数量有多少”的 SQL
+```
+
+**在命令行里：**
+
+只看 SQL（不生成 HTML）：
+
+```bash
+python scripts/smart_dashboard_generator.py --mode sql "本周注册表的用户数量有多少"
+```
+
+查数据并按需生成 HTML 看板：
+
+```bash
+python scripts/smart_dashboard_generator.py "最近7天使用表的数据"
+# 程序会先打印匹配表+SQL+行数，再询问是否生成 HTML 文件
 ```
 
 ---
 
-## 💡 使用示例
+## 💡 自然语言查询示例
 
 ### 统计查询
 
@@ -208,6 +293,30 @@ python scripts/smart_dashboard_generator.py "查询用户表的总数"
 用户: 显示用户表最新的100条记录
 用户: 查看订单表的销售详情
 ```
+
+### 统计类查询（更贴近期望）
+
+```
+用户: 本周启动次数有多少
+用户: 本月注册用户有多少个
+用户: 最近7天每个功能的使用次数
+```
+
+你也可以只生成 SQL：
+
+```bash
+python scripts/smart_dashboard_generator.py --mode sql "本周启动次数有多少"
+```
+
+### 多表联查思路（当前简版）
+
+当前版本会优先识别主表，并给出「相关表列表」，JOIN 规则可以在
+`scripts/nlp_query_parser.py` 中的 `_plan_joins` / `_generate_sql` 里按你的外键关系继续扩展。
+
+典型多表场景示例：
+
+- 查询每个渠道来源的注册用户数量
+- 最近30天，每个来源渠道的启动次数
 
 ---
 
