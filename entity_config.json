@@ -27,6 +27,13 @@
       "操作记录表": "yt_funcuse_info_tb"
     },
 
+    "完成结果相关": {
+      "功能完成表": "yt_func_res_info_tb",
+      "功能结果表": "yt_func_res_info_tb",
+      "完成结果表": "yt_func_res_info_tb",
+      "结果列表": "yt_func_res_info_tb"
+    },
+
     "渠道来源相关": {
       "来源表": "yt_usersource_info_tb",
       "渠道表": "yt_usersource_info_tb",
@@ -72,6 +79,7 @@
     "launch": "yt_launchapp_info_tb",
     "usage": "yt_funcuse_info_tb",
     "source": "yt_usersource_info_tb",
-    "events": "yt_burial_point_tb"
+    "events": "yt_burial_point_tb",
+    "result": "yt_func_res_info_tb"
   }
 }

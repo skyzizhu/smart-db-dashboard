@@ -379,22 +379,43 @@ class NLPQueryParser:
         else:
             # 默认选择主要字段
             table_info = self.db.get_table_structure(primary_table)
+            selected_cols: List[str] = []
+
             if table_info and table_info.get('column_names'):
-                # 列表/分页查询：选择所有字段，特别是时间字段
+                cols = table_info['column_names']
+
+                # 列表/分页查询：优先选择时间字段
                 if intent.get('pagination') or '列表' in original_query or '详情' in original_query:
-                    # 优先选择时间字段，排除timezone等非时间戳字段
-                    cols = table_info['column_names']
-                    # 优先包含时间相关的字段（排除timezone等）
-                    time_cols = [c for c in cols if any(t in c.lower() for t in ['time', 'date', 'created', 'updated'])
-                                and 'timezone' not in c.lower() and 'language' not in c.lower()]
+                    # 优先包含时间相关的字段（排除 timezone / language 等）
+                    time_cols = [
+                        c for c in cols
+                        if any(t in c.lower() for t in ['time', 'date', 'created', 'updated'])
+                        and 'timezone' not in c.lower()
+                        and 'language' not in c.lower()
+                    ]
                     other_cols = [c for c in cols if c not in time_cols]
-                    # 组合：时间字段优先，然后是其他字段，最多选择10个
                     selected_cols = (time_cols + other_cols)[:10]
-                    select_clause = f"SELECT {', '.join(selected_cols)}"
                 else:
                     # 普通查询：选择前5个字段
-                    cols = table_info['column_names'][:5]
-                    select_clause = f"SELECT {', '.join(cols)}"
+                    selected_cols = cols[:5]
+
+                # 如果存在时间条件，确保对应的时间字段出现在SELECT中（优先放在最前）
+                time_conditions = intent.get('time_conditions') or []
+                time_field = None
+                if time_conditions and isinstance(time_conditions[0], dict):
+                    time_field = time_conditions[0].get('field')
+
+                if time_field and time_field in cols:
+                    if time_field not in selected_cols:
+                        selected_cols = [time_field] + [c for c in selected_cols if c != time_field]
+                    else:
+                        # 确保时间字段排在首位
+                        selected_cols = [time_field] + [c for c in selected_cols if c != time_field]
+
+                if selected_cols:
+                    select_clause = f"SELECT {', '.join(selected_cols)}"
+                else:
+                    select_clause = "SELECT *"
             else:
                 select_clause = "SELECT *"
         

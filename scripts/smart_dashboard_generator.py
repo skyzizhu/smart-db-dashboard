@@ -12,11 +12,32 @@ from collections import Counter
 from smart_db_connector import SmartDBConnector
 from nlp_query_parser import NLPQueryParser
 
+
+def _get_skill_root() -> str:
+    """获取当前 Skill 根目录（scripts 上一级）"""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.dirname(script_dir)
+
 class SmartDashboardGenerator:
-    def __init__(self, config_file: str = "db_config.json"):
-        """初始化智能看板生成器"""
-        self.db = SmartDBConnector(config_file)
-        self.parser = NLPQueryParser(self.db)
+    def __init__(self, config_file: str | None = None):
+        """初始化智能看板生成器
+
+        约定：配置文件必须使用 Skill 目录下的 db_config.json 和 entity_config.json。
+        """
+        skill_root = _get_skill_root()
+
+        # 规范化数据库配置路径：相对路径一律视为相对于 skill 根目录
+        if config_file is None:
+            db_config_path = os.path.join(skill_root, "db_config.json")
+        else:
+            db_config_path = config_file
+            if not os.path.isabs(db_config_path):
+                db_config_path = os.path.join(skill_root, db_config_path)
+
+        entity_config_path = os.path.join(skill_root, "entity_config.json")
+
+        self.db = SmartDBConnector(db_config_path)
+        self.parser = NLPQueryParser(self.db, config_file=entity_config_path)
         self.template_path = "assets/enhanced_dashboard_template.html"
     
     def process_query(self, user_query: str) -> Dict[str, Any]:
@@ -533,8 +554,11 @@ def main():
     parser = argparse.ArgumentParser(description="智能数据看板生成器")
     parser.add_argument("query", nargs="*", help="自然语言查询，例如: 今天的用户注册量")
     parser.add_argument("--check-config", action="store_true", help="检查 db_config.json 和 entity_config.json 配置并测试数据库连接")
-    parser.add_argument("--db-config", default="db_config.json", help="数据库配置文件路径")
-    parser.add_argument("--entity-config", default="entity_config.json", help="实体配置文件路径")
+    # 默认使用 skill 根目录下的配置文件，避免误用项目根目录同名文件
+    default_db_config = os.path.join(_get_skill_root(), "db_config.json")
+    default_entity_config = os.path.join(_get_skill_root(), "entity_config.json")
+    parser.add_argument("--db-config", default=default_db_config, help="数据库配置文件路径（默认使用 skill 目录下的 db_config.json）")
+    parser.add_argument("--entity-config", default=default_entity_config, help="实体配置文件路径（默认使用 skill 目录下的 entity_config.json）")
     parser.add_argument("--mode", choices=["dashboard", "sql", "json"], default="dashboard", help="输出模式: 仪表盘HTML / 仅SQL / 原始JSON结果")
     parser.add_argument("--output", help="输出HTML文件路径(仅 dashboard 模式有效)")
 
@@ -592,7 +616,16 @@ def main():
 
     if args.mode == "json":
         result = generator.process_query(user_query)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        # JSON 模式：处理 datetime 等不可直接序列化的类型
+        class _ResultEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if hasattr(obj, "strftime"):
+                    return obj.strftime("%Y-%m-%d %H:%M:%S")
+                if hasattr(obj, "float"):
+                    return float(obj)
+                return super().default(obj)
+
+        print(json.dumps(result, ensure_ascii=False, indent=2, cls=_ResultEncoder))
         return
 
     # dashboard 模式：先查询出结果，再询问是否生成 HTML 看板
@@ -616,7 +649,33 @@ def main():
     print("📋 匹配到表:", plan.get("primary_table"))
     print("📌 生成的SQL:")
     print(result.get("sql_query", ""))
-    print("📊 结果行数:", result.get("row_count", 0))
+    row_count = result.get("row_count", 0)
+    print("📊 结果行数:", row_count)
+
+    # 直接输出用户所需的内容（数据预览），控制台最多展示前 50 行
+    data = result.get("data") or []
+    columns = result.get("columns") or []
+    if data and columns:
+        max_rows = 50
+        print(f"📄 数据预览（最多显示前 {max_rows} 行）：")
+        header = " | ".join(columns)
+        print(header)
+        print("-" * len(header))
+
+        for idx, row in enumerate(data):
+            if idx >= max_rows:
+                if row_count > max_rows:
+                    print(f"...（其余 {row_count - max_rows} 行已省略）")
+                break
+
+            # row 为 dict（cursor(dictionary=True) 返回）
+            values = []
+            for col in columns:
+                val = row.get(col)
+                if hasattr(val, "strftime"):
+                    val = val.strftime("%Y-%m-%d %H:%M:%S")
+                values.append("" if val is None else str(val))
+            print(" | ".join(values))
 
     def _ask_yes_no(prompt: str) -> bool:
         try:

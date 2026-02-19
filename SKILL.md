@@ -1,6 +1,6 @@
 ---
 name: smart-db-dashboard
-description: Intelligent database query and dashboard generation system with automatic table discovery, natural language parsing, smart SQL generation, and multi-table join support. Use when Claude needs to connect to databases, discover tables automatically, match user queries to table structures, generate intelligent SQL queries, create dynamic data visualizations, or process database information with smart analysis.
+description: Intelligent database query and dashboard generation system with automatic table discovery, natural language parsing, smart SQL generation, and multi-table join support. Use when Codex needs to connect to databases, discover tables automatically, match user queries to table structures, generate intelligent SQL queries, create dynamic data visualizations, or process database information with smart analysis. Also trigger this skill when the user prompt explicitly contains phrases like “查询数据库” or “查询数据表”.
 ---
 
 # 智能数据库看板生成器
